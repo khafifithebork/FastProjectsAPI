@@ -42,3 +42,40 @@ def create_task(task: Task, session: SessionDependency):
     session.commit()
     session.refresh(task)
     return task
+
+@app.get("/tasks/")
+def read_tasks(session: SessionDependency, offset: int = 0, limit: Annotated[int, Query(ge=1, le=100)] = 10):
+    tasks = session.exec(select(Task).offset(offset).limit(limit)).all()
+    return tasks
+
+@app.get("/tasks/{task_id}")
+def read_task(task_id: int, session: SessionDependency):
+    task = session.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+@app.patch("/tasks/{task_id}")
+def update_task(task_id: int, task_update: TaskUpdate, session: SessionDependency):
+    task = session.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task_data = task_update.model_dump(exclude_unset=True)
+    for key, value in task_data.items():
+        setattr(task, key, value)
+    
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int, session: SessionDependency):
+    task = session.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    session.delete(task)
+    session.commit()
+    return {"deleted": True}
